@@ -12,6 +12,10 @@ class SalesCommissions extends Model
         'order_id',
         'amount',
     ];
+    public function salesCommissions()
+    {
+        return $this->hasMany(\App\Models\SalesCommissions::class);
+    }
 
     public function order(): BelongsTo
     {

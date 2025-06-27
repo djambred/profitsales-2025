@@ -1,21 +1,14 @@
 <?php
 
-namespace App\Filament\Admin\Resources;
+namespace App\Filament\Sales\Resources;
 
-use App\Enums\OrderStatus;
-use App\Filament\Admin\Resources\OrderResource\Pages;
-use App\Filament\Admin\Resources\OrderResource\RelationManagers;
-use App\Filament\Admin\Resources\ProductResource\Pages\EditProduct;
-use App\Filament\Resources\OrderResource\RelationManagers\OrderFlowsRelationManager;
-use App\Models\Client;
+use App\Filament\Sales\Resources\OrderResource\Pages;
+use App\Filament\Sales\Resources\OrderResource\RelationManagers;
 use App\Models\Order;
-use App\Models\OrderFlow;
-use App\Models\SalesCommissions;
+use App\Models\Product;
 use Filament\Forms;
-use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Split;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -23,12 +16,27 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Enums\OrderStatus;
+use App\Models\OrderFlow;
+use App\Models\SalesCommissions;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Split;
+use Illuminate\Support\Facades\Auth;
 
 class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole('sales');
+    }
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole('sales');
+    }
 
     public static function form(Form $form): Form
     {
@@ -43,15 +51,13 @@ class OrderResource extends Resource
                             \App\Models\Client::with('user')->get()
                                 ->mapWithKeys(fn($client) => [$client->id => $client->user?->name ?? 'No User'])
                         ),
-
-                    Select::make('sales_id')
-                        ->label('Sales')
-                        ->options(
-                            \App\Models\Sales::with('employee.user')->get()
-                                ->pluck('employee.user.name', 'id')
-                        )
+                    TextInput::make('sales_name')
+                        ->default(fn() => auth()->user()?->name)
+                        ->disabled()
+                        ->dehydrated(false),
+                    Hidden::make('sales_id')
+                        ->default(fn() => Auth::id())
                         ->required(),
-
                     TextInput::make('order_number')
                         ->label('Invoice Number')
                         ->disabled()
@@ -149,7 +155,6 @@ class OrderResource extends Resource
                         'pending' => 'gray',
                         'approved' => 'success',
                         'converted_to_po' => 'info',
-                        'reject' => 'danger',
                         default => 'secondary',
                     })
                     ->formatStateUsing(fn($state) => $state?->label()),
@@ -205,19 +210,18 @@ class OrderResource extends Resource
             ]);
     }
 
-    public static function getRelations(): array
-    {
-        return [
-            OrderFlowsRelationManager::class,
-        ];
-    }
-
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListOrders::route('/'),
             'create' => Pages\CreateOrder::route('/create'),
-            'edit' => Pages\EditOrder::route('/{record}/edit'),
+            //'view' => Pages\ViewOrder::route('/{record}'),
         ];
+    }
+
+    // Prevent editing/deleting
+    public static function canDelete($record): bool
+    {
+        return false;
     }
 }

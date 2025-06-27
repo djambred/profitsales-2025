@@ -27,7 +27,7 @@
 <body>
     <h1>Invoice: {{ $order->order_number }}</h1>
     <p><strong>Client:</strong> {{ $order->client->user->name }}</p>
-    <p><strong>Sales:</strong> {{ $order->sale->employee->user->name ?? '-' }}</p>
+    <p><strong>Sales:</strong> {{ $order->sales?->employee?->user?->name ?? '-' }}</p>
     <p><strong>Status:</strong> {{ $order->status }}</p>
     <p><strong>Date:</strong> {{ $order->created_at->format('d M Y') }}</p>
 

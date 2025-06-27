@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\OrderStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Auth;
+use App\Models\OrderFlow;
 
 class Order extends Model
 {
@@ -19,6 +22,12 @@ class Order extends Model
         'sales_profit',
         'notes',
     ];
+    protected $casts = [
+        'status' => OrderStatus::class,
+    ];
+    protected $attributes = [
+        'status' => 'pending',
+    ];
 
     public function client(): BelongsTo
     {
@@ -29,7 +38,6 @@ class Order extends Model
     {
         return $this->belongsTo(Sales::class);
     }
-
     public function orderDetails(): HasMany
     {
         return $this->hasMany(OrderDetail::class);
@@ -60,5 +68,19 @@ class Order extends Model
 
             $order->order_number = $orderNumber;
         });
+        static::created(function ($order) {
+            OrderFlow::create([
+                'order_id'    => $order->id,
+                'user_id'     => Auth::id(),
+                'from_status' => null,
+                'to_status'   => $order->status?->value ?? 'pending',
+                'notes'       => 'Order created by Sales.',
+            ]);
+        });
+    }
+
+    public function flows()
+    {
+        return $this->hasMany(OrderFlow::class);
     }
 }

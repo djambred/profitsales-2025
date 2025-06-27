@@ -28,4 +28,9 @@ class Client extends Model
     {
         return $this->hasMany(Employee::class);
     }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
 }

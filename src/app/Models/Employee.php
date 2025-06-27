@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Employee extends Model
 {
@@ -14,6 +15,7 @@ class Employee extends Model
         'department_id',
         'position_id',
         'employee_code',
+        'client_id'
     ];
 
     public function user(): BelongsTo
@@ -41,8 +43,8 @@ class Employee extends Model
         return $this->belongsTo(Client::class);
     }
 
-    public function sales(): HasMany
+    public function sales(): HasOne
     {
-        return $this->hasMany(Sales::class);
+        return $this->hasOne(Sales::class);
     }
 }

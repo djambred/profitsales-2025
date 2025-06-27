@@ -1,34 +1,55 @@
 <?php
 
-namespace App\Filament\Admin\Resources;
+namespace App\Filament\Client\Resources;
 
 use App\Enums\OrderStatus;
-use App\Filament\Admin\Resources\OrderResource\Pages;
-use App\Filament\Admin\Resources\OrderResource\RelationManagers;
-use App\Filament\Admin\Resources\ProductResource\Pages\EditProduct;
-use App\Filament\Resources\OrderResource\RelationManagers\OrderFlowsRelationManager;
-use App\Models\Client;
+use App\Filament\Client\Resources\OrderResource\Pages;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\OrderFlow;
-use App\Models\SalesCommissions;
 use Filament\Forms;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Split;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole('client');
+    }
+    public static function canView($record): bool
+    {
+        return true;
+    }
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+
+
+
 
     public static function form(Form $form): Form
     {
@@ -78,7 +99,7 @@ class OrderResource extends Resource
                             $set('total', collect($details)->sum('subtotal'));
                         }),
 
-                    \Filament\Forms\Components\Textarea::make('notes')->columnSpanFull(),
+                    Textarea::make('notes')->columnSpanFull(),
                 ]),
 
                 Repeater::make('orderDetails')
@@ -94,7 +115,7 @@ class OrderResource extends Resource
                             ->required()
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {
-                                $product = \App\Models\Product::find($state);
+                                $product = Product::find($state);
                                 if ($product) {
                                     $set('product_name', $product->name);
                                     $set('price', $product->price);
@@ -139,85 +160,59 @@ class OrderResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('order_number')->searchable(),
-                Tables\Columns\TextColumn::make('client.user.name')->label('Client'),
-                Tables\Columns\TextColumn::make('sales.employee.user.name')->label('Sales'),
-                Tables\Columns\TextColumn::make('category'),
+                Tables\Columns\TextColumn::make('order_number'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn($state) => match ($state?->value ?? $state) {
-                        'pending' => 'gray',
-                        'approved' => 'success',
-                        'converted_to_po' => 'info',
-                        'reject' => 'danger',
-                        default => 'secondary',
-                    })
-                    ->formatStateUsing(fn($state) => $state?->label()),
+                    ->formatStateUsing(fn($state) => $state instanceof OrderStatus ? $state->label() : OrderStatus::from($state)->label()),
                 Tables\Columns\TextColumn::make('total')->money('IDR'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make()
-                    ->visible(fn(Order $record) => $record->category !== 'PO'),
-
-                Tables\Actions\Action::make('Convert to PO')
-                    ->visible(fn(Order $record) => $record->category === 'SO' && $record->status === OrderStatus::Approved)
+                Tables\Actions\ViewAction::make(),
+                Action::make('approve')
+                    ->label('Approve')
+                    ->visible(fn($record) => $record->status === OrderStatus::Pending)
+                    ->requiresConfirmation()
                     ->action(function (Order $record) {
-                        $record->update([
-                            'category' => 'PO',
-                            'status' => OrderStatus::ConvertedToPO,
-                        ]);
+                        $record->update(['status' => OrderStatus::Approved]);
 
                         OrderFlow::create([
                             'order_id' => $record->id,
                             'user_id' => auth()->id(),
-                            'from_status' => OrderStatus::Approved,
-                            'to_status' => OrderStatus::ConvertedToPO,
-                            'notes' => 'Converted to Purchase Order by Sales',
+                            'from_status' => OrderStatus::Pending,
+                            'to_status' => OrderStatus::Approved,
+                            'notes' => 'Approved by Client',
                         ]);
-
-                        SalesCommissions::updateOrCreate(
-                            [
-                                'sales_id' => $record->sales_id,
-                                'order_id' => $record->id,
-                            ],
-                            [
-                                'amount' => $record->total * 0.10,
-                            ]
-                        );
                     })
-                    ->requiresConfirmation()
-                    ->label('Convert to PO')
                     ->color('success')
-                    ->icon('heroicon-o-arrow-right-circle'),
+                    ->icon('heroicon-o-check'),
 
-                Tables\Actions\Action::make('print_invoice')
-                    ->label('Print Invoice')
-                    ->icon('heroicon-o-printer')
-                    ->color('primary')
-                    ->url(fn(Order $record) => route('orders.invoice', $record))
-                    ->openUrlInNewTab()
-                    ->visible(fn(Order $record) => $record->category === 'PO'),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                Action::make('reject')
+                    ->label('Reject')
+                    ->visible(fn($record) => $record->status === OrderStatus::Pending)
+                    ->requiresConfirmation()
+                    ->action(function (Order $record) {
+                        $record->update(['status' => OrderStatus::Rejected]);
+
+                        OrderFlow::create([
+                            'order_id' => $record->id,
+                            'sales_id' => auth()->id(),
+                            'from_status' => OrderStatus::Pending,
+                            'to_status' => OrderStatus::Rejected,
+                            'notes' => 'Rejected by Client Call For Details',
+                        ]);
+                    })
+                    ->color('danger')
+                    ->icon('heroicon-o-x-mark'),
             ]);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            OrderFlowsRelationManager::class,
-        ];
     }
 
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListOrders::route('/'),
-            'create' => Pages\CreateOrder::route('/create'),
-            'edit' => Pages\EditOrder::route('/{record}/edit'),
+            //'view' => Pages\ViewOrder::route('/{record}'),
+            //'create' => Pages\CreateOrder::route('/create'),
+            //'edit' => Pages\EditOrder::route('/{record}/edit'),
         ];
     }
 }

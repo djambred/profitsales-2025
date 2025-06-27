@@ -23,8 +23,8 @@ return new class extends Migration
             $table->decimal('total', 12, 2)->default(0);
             $table->decimal('profit', 12, 2)->default(0);
             $table->decimal('sales_profit', 12, 2)->default(0);
-            $table->enum('status', ['pending', 'approved', 'converted_to_po'])->default('pending');
-            $table->text('notes')->nullable();
+            $table->string('status')->default('pending');
+            $table->text('notes')->default('initial from sales')->nullable();
             $table->timestamps();
         });
     }
