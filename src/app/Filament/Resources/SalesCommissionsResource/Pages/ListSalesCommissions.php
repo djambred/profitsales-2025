@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Admin\Resources\SalesCommissionsResource\Pages;
+namespace App\Filament\Resources\SalesCommissionsResource\Pages;
 
-use App\Filament\Admin\Resources\SalesCommissionsResource;
+use App\Filament\Resources\SalesCommissionsResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 

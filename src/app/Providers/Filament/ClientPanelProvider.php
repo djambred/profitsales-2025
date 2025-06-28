@@ -3,7 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Client\Pages\Auth\Register as ClientRegister;
-use App\Filament\Client\Resources\OrderResource;
+use App\Filament\Resources\OrderResource;
 use App\Models\User;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -58,6 +58,9 @@ class ClientPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Client/Pages'), for: 'App\\Filament\\Client\\Pages')
             ->pages([
                 Pages\Dashboard::class,
+            ])
+            ->resources([
+                OrderResource::class
             ])
             ->discoverWidgets(in: app_path('Filament/Client/Widgets'), for: 'App\\Filament\\Client\\Widgets')
             ->widgets([

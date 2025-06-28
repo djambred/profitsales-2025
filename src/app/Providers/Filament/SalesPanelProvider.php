@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Resources\OrderResource;
+use App\Filament\Resources\SalesCommissionsResource;
 use App\Filament\Sales\Widgets\TotalCommissions;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -42,7 +44,10 @@ class SalesPanelProvider extends PanelProvider
                 TotalCommissions::class,
                 //Widgets\AccountWidget::class,
                 //Widgets\FilamentInfoWidget::class,
-
+            ])
+            ->resources([
+                SalesCommissionsResource::class,
+                OrderResource::class
             ])
             ->middleware([
                 EncryptCookies::class,

@@ -36,4 +36,9 @@ class Sales extends Model
     {
         return $this->belongsTo(Position::class);
     }
+
+    public function getUserIdAttribute(): ?int
+    {
+        return $this->employee?->user?->id;
+    }
 }
