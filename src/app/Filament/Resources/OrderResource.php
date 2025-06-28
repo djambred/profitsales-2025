@@ -15,6 +15,8 @@ use App\Models\SalesCommissions;
 use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Split;
@@ -131,13 +133,24 @@ class OrderResource extends Resource
                                 ->mapWithKeys(fn($client) => [$client->id => $client->user?->name ?? 'No User'])
                         ),
 
+                    Placeholder::make('sales_display')
+                        ->label('Sales')
+                        ->content(fn() => Filament::auth()->user()?->employee?->user?->name)
+                        ->visible(fn() => Filament::auth()->user()?->hasRole('sales')),
+
+                    Hidden::make('sales_id')
+                        ->default(fn() => Filament::auth()->user()?->employee?->sales?->id)
+                        ->dehydrated(true)
+                        ->visible(fn() => Filament::auth()->user()?->hasRole('sales')),
+
                     Select::make('sales_id')
                         ->label('Sales')
                         ->options(
                             \App\Models\Sales::with('employee.user')->get()
                                 ->pluck('employee.user.name', 'id')
                         )
-                        ->required(),
+                        ->required()
+                        ->visible(fn() => Filament::auth()->user()?->hasRole('super_admin')),
 
                     TextInput::make('order_number')
                         ->label('Invoice Number')
