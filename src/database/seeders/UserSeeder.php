@@ -138,6 +138,7 @@ class UserSeeder extends Seeder
             'postcode' => '90210',
             'contact_person' => 'John Smith',
             'phone' => '987-654-3210',
+            'code' => 'CLT - LA - 001',
         ]);
 
         $nyClientUser = User::firstOrCreate(['email' => 'client.ny@admin.com'], [
@@ -153,6 +154,7 @@ class UserSeeder extends Seeder
             'postcode' => '10001',
             'contact_person' => 'Maria Garcia',
             'phone' => '917-555-0123',
+            'code' => 'CLT - NY - 001',
         ]);
     }
 }

@@ -17,6 +17,7 @@ class Client extends Model
         'postcode',
         'contact_person',
         'phone',
+        'code',
     ];
 
     public function user(): BelongsTo

@@ -15,6 +15,7 @@ return new class extends Migration
     {
         Schema::create('clients', function (Blueprint $table) {
             $table->id();
+            $table->string('code');
             $table->foreignIdFor(User::class);
             $table->foreignIdFor(Branch::class);
             $table->string('address');

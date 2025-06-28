@@ -7,12 +7,13 @@ use App\Models\SalesCommissions;
 use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget\Card;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
+use Illuminate\Support\Facades\Auth;
 
 class TotalCommissions extends BaseWidget
 {
     protected function getCards(): array
     {
-        $userId = auth()->id();
+        $userId = Auth::id();
 
         // 🔢 Commissions
         $totalThisMonth = SalesCommissions::whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])

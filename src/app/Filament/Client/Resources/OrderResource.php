@@ -19,20 +19,32 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 
 class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->where('client_id', auth()->user()?->client?->id);
+    }
+
     public static function canViewAny(): bool
     {
         return auth()->user()->hasRole('client');
     }
+
     public static function canView($record): bool
     {
-        return true;
+        $user = auth()->user();
+
+        return $record->client_id === $user?->client?->id;
     }
+
     public static function canCreate(): bool
     {
         return false;
@@ -170,7 +182,12 @@ class OrderResource extends Resource
                 Tables\Actions\ViewAction::make(),
                 Action::make('approve')
                     ->label('Approve')
-                    ->visible(fn($record) => $record->status === OrderStatus::Pending)
+                    ->visible(function (Order $record) {
+                        $user = Auth::user();
+
+                        return $record->status === OrderStatus::Pending
+                            && $record->client_id === $user?->client?->id;
+                    })
                     ->requiresConfirmation()
                     ->action(function (Order $record) {
                         $record->update(['status' => OrderStatus::Approved]);
@@ -188,21 +205,27 @@ class OrderResource extends Resource
 
                 Action::make('reject')
                     ->label('Reject')
-                    ->visible(fn($record) => $record->status === OrderStatus::Pending)
+                    ->visible(function (Order $record) {
+                        $user = Auth::user();
+
+                        return $record->status === OrderStatus::Pending
+                            && $record->client_id === $user?->client?->id;
+                    })
                     ->requiresConfirmation()
                     ->action(function (Order $record) {
                         $record->update(['status' => OrderStatus::Rejected]);
 
                         OrderFlow::create([
                             'order_id' => $record->id,
-                            'sales_id' => auth()->id(),
+                            'user_id' => auth()->id(), // use user_id for consistency
                             'from_status' => OrderStatus::Pending,
                             'to_status' => OrderStatus::Rejected,
-                            'notes' => 'Rejected by Client Call For Details',
+                            'notes' => 'Rejected by Client. Call for details.',
                         ]);
                     })
                     ->color('danger')
                     ->icon('heroicon-o-x-mark'),
+
             ]);
     }
 
