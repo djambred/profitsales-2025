@@ -78,6 +78,31 @@ class UserSeeder extends Seeder
             'phone' => '111-222-3333'
         ]);
 
+        $laSalesUser = User::firstOrCreate(
+            ['email' => 'sales1.la@admin.com'],
+            ['name' => 'Jane Sales 1 (LA)', 'password' => Hash::make('password')]
+        );
+        $laSalesUser->assignRole($salesRole);
+        $laSalesDept = Department::where('branch_id', $laBranch->id)->where('name', 'Sales')->firstOrFail();
+        $laSalesPos = Position::where('department_id', $laSalesDept->id)->where('name', 'Sales Representative')->firstOrFail();
+        $laEmployee = Employee::firstOrCreate([
+            'user_id' => $laSalesUser->id,
+        ], [
+            'branch_id' => $laBranch->id,
+            'department_id' => $laSalesDept->id,
+            'position_id' => $laSalesPos->id,
+            'employee_code' => 'EMP-00003'
+        ]);
+
+        Sales::firstOrCreate([
+            'user_id' => $laSalesUser->id,
+            'employee_id' => $laEmployee->id,
+        ], [
+            'department_id' => $laSalesDept->id,
+            'position_id' => $laSalesPos->id,
+            'phone' => '111-222-3333'
+        ]);
+
         // === NY Branch ===
 
         // NY Sales
@@ -94,7 +119,7 @@ class UserSeeder extends Seeder
             'branch_id' => $nyBranch->id,
             'department_id' => $nySalesDept->id,
             'position_id' => $nySalesPos->id,
-            'employee_code' => 'EMP-00003'
+            'employee_code' => 'EMP-00004'
         ]);
 
         Sales::firstOrCreate([
@@ -120,7 +145,7 @@ class UserSeeder extends Seeder
             'branch_id' => $nyBranch->id,
             'department_id' => $nyFinanceDept->id,
             'position_id' => $nyFinancePos->id,
-            'employee_code' => 'EMP-00004'
+            'employee_code' => 'EMP-00006'
         ]);
 
         // === Clients ===
@@ -139,6 +164,21 @@ class UserSeeder extends Seeder
             'contact_person' => 'John Smith',
             'phone' => '987-654-3210',
             'code' => 'CLT - LA - 001',
+        ]);
+        $laClientUser = User::firstOrCreate(['email' => 'client1.la@admin.com'], [
+            'name' => 'LA Client 1 Inc.',
+            'password' => Hash::make('password'),
+        ]);
+        $laClientUser->assignRole($clientRole);
+        Client::firstOrCreate(['user_id' => $laClientUser->id], [
+            'branch_id' => $laBranch->id,
+            'address' => '789 Customer Lane',
+            'state' => 'California',
+            'country' => 'USA',
+            'postcode' => '90210',
+            'contact_person' => 'John Smith',
+            'phone' => '987-654-3210',
+            'code' => 'CLT - LA - 002',
         ]);
 
         $nyClientUser = User::firstOrCreate(['email' => 'client.ny@admin.com'], [

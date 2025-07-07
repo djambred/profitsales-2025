@@ -4,16 +4,18 @@ namespace App\Filament\Resources;
 
 use App\Enums\OrderStatus;
 use App\Filament\Resources\OrderResource\Pages;
-use App\Filament\Resources\OrderResource\Pages\ViewOrder;
-use App\Filament\Resources\OrderResource\RelationManagers;
-use App\Filament\Resources\ProductResource\Pages\EditProduct;
 use App\Filament\Resources\OrderResource\RelationManagers\OrderFlowsRelationManager;
-use App\Models\Client;
 use App\Models\Order;
 use App\Models\OrderFlow;
 use App\Models\SalesCommissions;
 use Filament\Facades\Filament;
 use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -21,20 +23,10 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Split;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Facades\Auth;
-use Filament\Tables\Actions\Action;
 
 class OrderResource extends Resource
 {
     protected static ?string $model = Order::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function getEloquentQuery(): Builder
@@ -42,55 +34,25 @@ class OrderResource extends Resource
         $query = parent::getEloquentQuery();
         $user = Filament::auth()->user();
 
-        // Super Admin can see all records
-        if ($user->hasRole('super_admin')) {
-            return $query;
-        }
+        if ($user->hasRole('super_admin')) return $query;
+        if ($user->hasRole('sales')) return $query->where('sales_id', $user->employee?->sales?->id);
+        if ($user->hasRole('client')) return $query->where('client_id', $user->client?->id);
 
-        // Sales can only see orders they are assigned to
-        if ($user->hasRole('sales')) {
-            // This assumes your User model has a 'sales' relationship
-            // that links to the Sales model. The '?->' is a null-safe
-            // operator to prevent errors if the relationship doesn't exist.
-            return $query->where('sales_id', $user->employee?->sales?->id);
-        }
-
-        // Clients can only see their own orders
-        if ($user->hasRole('client')) {
-            // Your action visibility logic already confirms this relationship structure
-            return $query->where('client_id', $user->client?->id);
-        }
-
-        // As a fallback, return an empty query for any other roles
-        // to prevent accidental data leakage.
         return $query->whereRaw('1 = 0');
     }
+
     public static function canAccessRecord(Order $record): bool
-    {
-        $user = Filament::auth()->user();
-
-        if ($user->hasRole('super_admin')) {
-            return true;
-        }
-
-        if ($user->hasRole('sales') && $record->sales_id === $user->employee?->sales?->id) {
-            return true;
-        }
-
-        if ($user->hasRole('client') && $record->client_id === $user->client?->id) {
-            return true;
-        }
-
-        return false;
-    }
-
-    public static function canView(Model $record): bool
     {
         $user = Filament::auth()->user();
 
         return $user->hasRole('super_admin') ||
             ($user->hasRole('sales') && $record->sales_id === $user->employee?->sales?->id) ||
             ($user->hasRole('client') && $record->client_id === $user->client?->id);
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return self::canAccessRecord($record);
     }
 
     public static function canViewAny(): bool
@@ -105,6 +67,7 @@ class OrderResource extends Resource
             default => false,
         };
     }
+
     public static function canCreate(): bool
     {
         $user = Filament::auth()->user();
@@ -113,44 +76,66 @@ class OrderResource extends Resource
         return match ($panel) {
             'admin' => $user?->hasRole('super_admin'),
             'sales' => $user?->hasRole('sales'),
-            //'client' => $user?->hasRole('client'),
+            'client' => $user?->hasRole('client'),
             default => false,
         };
     }
 
     public static function form(Form $form): Form
     {
+        $user = Filament::auth()->user();
+        $role = $user->getRoleNames()->first();
+        $branchId = $user->employee?->branch_id ?? $user->client?->branch_id;
 
         return $form->schema([
             Split::make([
                 Grid::make(2)->schema([
+
+                    // Client Picker: only visible for sales
                     Select::make('client_id')
                         ->label('Client')
-                        ->relationship('client.user', 'name')
+                        ->options(function () use ($branchId) {
+                            return \App\Models\Client::with('user')
+                                ->where('branch_id', $branchId)
+                                ->get()
+                                ->mapWithKeys(fn($client) => [$client->id => $client->user?->name ?? 'No User']);
+                        })
+                        ->searchable()
                         ->required()
-                        ->options(
-                            \App\Models\Client::with('user')->get()
-                                ->mapWithKeys(fn($client) => [$client->id => $client->user?->name ?? 'No User'])
-                        ),
+                        ->dehydrated(true)
+                        ->visible(fn() => Filament::auth()->user()?->hasRole('sales')),
 
+                    // Hidden client_id for client users
+                    Hidden::make('client_id')
+                        ->default(fn() => Filament::auth()->user()?->client?->id)
+                        ->dehydrated(true)
+                        ->visible(fn() => Filament::auth()->user()?->hasRole('client')),
+
+                    // Sales display (for client view)
                     Placeholder::make('sales_display')
                         ->label('Sales')
                         ->content(fn() => Filament::auth()->user()?->employee?->user?->name)
                         ->visible(fn() => Filament::auth()->user()?->hasRole('sales')),
 
+                    // Hidden sales_id for sales users
                     Hidden::make('sales_id')
                         ->default(fn() => Filament::auth()->user()?->employee?->sales?->id)
                         ->dehydrated(true)
                         ->visible(fn() => Filament::auth()->user()?->hasRole('sales')),
 
+                    // Selectable sales_id for client users
                     Select::make('sales_id')
                         ->label('Sales')
-                        ->options(
-                            \App\Models\Sales::with('employee.user')->get()
-                                ->pluck('employee.user.name', 'id')
-                        )
+                        ->options(function () use ($branchId) {
+                            return \App\Models\Sales::with('employee.user')
+                                ->whereHas('employee', fn($q) => $q->where('branch_id', $branchId))
+                                ->get()
+                                ->mapWithKeys(fn($sales) => [$sales->id => $sales->employee?->user?->name ?? 'No User']);
+                        })
+                        ->searchable()
                         ->required()
-                        ->visible(fn() => Filament::auth()->user()?->hasRole('super_admin')),
+                        ->dehydrated(true)
+                        ->visible(fn() => Filament::auth()->user()?->hasRole('client')),
 
                     TextInput::make('order_number')
                         ->label('Invoice Number')
@@ -181,6 +166,7 @@ class OrderResource extends Resource
                     \Filament\Forms\Components\Textarea::make('notes')->columnSpanFull(),
                 ]),
 
+                // Repeater
                 Repeater::make('orderDetails')
                     ->label('Product Details')
                     ->relationship()
@@ -258,18 +244,18 @@ class OrderResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->visible(fn(Order $record) => $record->category !== 'PO'),
+
                 Tables\Actions\Action::make('Convert to PO')
                     ->label('Convert to PO')
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(function (Order $record): bool {
-                        $user = Filament::auth()->user();
-
-                        return $user?->hasRole('sales') &&
+                    ->visible(
+                        fn(Order $record) =>
+                        Filament::auth()->user()?->hasRole('sales') &&
                             $record->category === 'SO' &&
-                            $record->status === OrderStatus::Approved;
-                    })
+                            $record->status === OrderStatus::Approved
+                    )
                     ->action(function (Order $record) {
                         $record->update([
                             'category' => 'PO',
@@ -285,13 +271,8 @@ class OrderResource extends Resource
                         ]);
 
                         SalesCommissions::updateOrCreate(
-                            [
-                                'sales_id' => $record->sales_id,
-                                'order_id' => $record->id,
-                            ],
-                            [
-                                'amount' => $record->total * 0.10,
-                            ]
+                            ['sales_id' => $record->sales_id, 'order_id' => $record->id],
+                            ['amount' => $record->total * 0.10]
                         );
                     }),
 
@@ -299,42 +280,64 @@ class OrderResource extends Resource
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn(Order $record) => Filament::auth()->user()?->hasRole('client') && $record->status === OrderStatus::Pending)
                     ->requiresConfirmation()
+                    ->visible(function (Order $record) {
+                        $user = Filament::auth()->user();
+                        $isPending = $record->status === OrderStatus::Pending;
+                        $notSelfCreated = $record->created_by !== $user->id;
+
+                        if ($user->hasRole('client')) {
+                            return $isPending && $record->client_id === $user->client?->id && $notSelfCreated;
+                        }
+                        if ($user->hasRole('sales')) {
+                            return $isPending && $record->sales_id === $user->employee?->sales?->id && $notSelfCreated;
+                        }
+
+                        return false;
+                    })
                     ->action(function (Order $record) {
-                        $record->update([
-                            'status' => OrderStatus::Approved,
-                        ]);
+                        $record->update(['status' => OrderStatus::Approved]);
 
                         OrderFlow::create([
                             'order_id' => $record->id,
                             'user_id' => auth()->id(),
                             'from_status' => OrderStatus::Pending,
                             'to_status' => OrderStatus::Approved,
-                            'notes' => 'Order approved by client',
+                            'notes' => 'Order approved by receiver',
                         ]);
                     }),
 
-                // Reject Action
                 Tables\Actions\Action::make('reject')
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn(Order $record) => Filament::auth()->user()?->hasRole('client') && $record->status === OrderStatus::Pending)
                     ->requiresConfirmation()
+                    ->visible(function (Order $record) {
+                        $user = Filament::auth()->user();
+                        $isPending = $record->status === OrderStatus::Pending;
+                        $notSelfCreated = $record->created_by !== $user->id;
+
+                        if ($user->hasRole('client')) {
+                            return $isPending && $record->client_id === $user->client?->id && $notSelfCreated;
+                        }
+                        if ($user->hasRole('sales')) {
+                            return $isPending && $record->sales_id === $user->employee?->sales?->id && $notSelfCreated;
+                        }
+
+                        return false;
+                    })
                     ->action(function (Order $record) {
-                        $record->update([
-                            'status' => OrderStatus::Rejected,
-                        ]);
+                        $record->update(['status' => OrderStatus::Rejected]);
 
                         OrderFlow::create([
                             'order_id' => $record->id,
                             'user_id' => auth()->id(),
                             'from_status' => OrderStatus::Pending,
                             'to_status' => OrderStatus::Rejected,
-                            'notes' => 'Order rejected by client',
+                            'notes' => 'Order rejected by receiver',
                         ]);
                     }),
+
                 Tables\Actions\Action::make('print_invoice')
                     ->label('Print Invoice')
                     ->icon('heroicon-o-printer')

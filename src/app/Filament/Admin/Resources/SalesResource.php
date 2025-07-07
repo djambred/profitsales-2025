@@ -29,7 +29,8 @@ class SalesResource extends Resource
                 //     ->preload()
                 //     ->required(),
                 Forms\Components\Select::make('employee_id')
-                    ->relationship('employee', 'user.name')
+                    ->relationship('employee', 'id')
+                    ->getOptionLabelFromRecordUsing(fn($record) => $record->user?->name)
                     ->searchable()
                     ->preload()
                     ->required(),
