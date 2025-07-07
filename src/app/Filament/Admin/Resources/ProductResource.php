@@ -29,25 +29,40 @@ class ProductResource extends Resource
                     ->label('SKU')
                     ->required()
                     ->maxLength(255),
+
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
+
                 Forms\Components\TextInput::make('description')
                     ->required()
                     ->maxLength(255),
+
                 Forms\Components\TextInput::make('price')
                     ->required()
                     ->numeric()
-                    ->prefix('$'),
+                    ->prefix('Rp')
+                    ->reactive() // penting: agar bisa trigger perubahan ke cost
+                    ->afterStateUpdated(function (callable $set, $state) {
+                        if ($state !== null && is_numeric($state)) {
+                            $set('cost', round($state * 0.01)); // otomatis 1%
+                        }
+                    }),
+
                 Forms\Components\TextInput::make('cost')
+                    ->label('Profit Sales (1%)')
                     ->required()
                     ->numeric()
-                    ->prefix('$'),
+                    ->prefix('Rp')
+                    ->disabled() // agar tidak bisa diubah user
+                    ->dehydrated(true), // ✅ tetap dikirim ke server walau disabled
+
                 Forms\Components\TextInput::make('stock')
                     ->required()
                     ->maxLength(255),
             ]);
     }
+
 
     public static function table(Table $table): Table
     {
@@ -61,10 +76,11 @@ class ProductResource extends Resource
                 Tables\Columns\TextColumn::make('description')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('price')
-                    ->money()
+                    ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('cost')
-                    ->money()
+                    ->label('Profit Sales')
+                    ->money('IDR')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('stock')
                     ->searchable(),

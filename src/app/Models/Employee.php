@@ -47,4 +47,16 @@ class Employee extends Model
     {
         return $this->hasOne(Sales::class);
     }
+
+    public function orders()
+    {
+        return $this->hasManyThrough(
+            \App\Models\Order::class,
+            \App\Models\Sales::class,
+            'employee_id', // foreign key di Sales
+            'sales_id',    // foreign key di Orders
+            'id',          // local key di Employee
+            'id'           // local key di Sales
+        );
+    }
 }

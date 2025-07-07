@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Admin\Widgets\SalesTargetBranchProgress;
+use App\Filament\Admin\Widgets\SalesTargetChart;
 use App\Filament\Resources\OrderResource;
 use App\Filament\Resources\SalesCommissionsResource;
 use Filament\Enums\ThemeMode;
@@ -53,6 +55,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([
                 \Awcodes\Overlook\Widgets\OverlookWidget::class,
+                \App\Filament\Admin\Widgets\BranchEarningsStat::class,
             ])
             ->navigationGroups([
                 NavigationGroup::make()

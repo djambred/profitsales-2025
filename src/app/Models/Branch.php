@@ -37,4 +37,18 @@ class Branch extends Model
     {
         return $this->hasMany(Client::class);
     }
+
+    public function orders()
+    {
+        return $this->hasManyThrough(
+            Order::class,
+            Employee::class,
+            'branch_id',     // FK di employees table
+            'sales_id',      // FK di orders table
+            'id',            // PK di branches table
+            'id'             // PK di employees table
+        )
+            ->join('sales', 'sales.id', '=', 'orders.sales_id')
+            ->whereColumn('sales.employee_id', 'employees.id');
+    }
 }

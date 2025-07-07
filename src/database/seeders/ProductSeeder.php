@@ -18,8 +18,8 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'Paracetamol 500mg',
                 'description' => 'For fever and mild pain relief.',
-                'price' => 1.50,
-                'cost' => 0.50,
+                'price' => 15000,
+                'cost' => 500,
                 'stock' => 1000,
             ]
         );
@@ -29,8 +29,8 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'Ibuprofen 200mg',
                 'description' => 'Anti-inflammatory drug for pain relief.',
-                'price' => 2.50,
-                'cost' => 0.75,
+                'price' => 25000,
+                'cost' => 750,
                 'stock' => 800,
             ]
         );
@@ -40,8 +40,8 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'Amoxicillin 250mg',
                 'description' => 'Antibiotic for bacterial infections.',
-                'price' => 5.00,
-                'cost' => 1.20,
+                'price' => 50000,
+                'cost' => 1200,
                 'stock' => 500,
             ]
         );
@@ -51,8 +51,8 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'Loratadine 10mg',
                 'description' => 'Antihistamine for allergies.',
-                'price' => 3.00,
-                'cost' => 0.90,
+                'price' => 3000,
+                'cost' => 900,
                 'stock' => 750,
             ]
         );
