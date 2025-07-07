@@ -149,8 +149,16 @@ class OrderResource extends Resource
                         ->unique(ignoreRecord: true),
 
                     Select::make('category')
-                        ->options(['SO' => 'Sales Order', 'PO' => 'Purchase Order'])
-                        ->required(),
+                        ->label('Category')
+                        ->options([
+                            'SO' => 'Sales Order',
+                            'PO' => 'Purchase Order',
+                        ])
+                        ->default('SO')
+                        ->disabled()
+                        ->dehydrated(true),
+                    //->hint('Sales Order'), // tampilkan hint jika placeholder tidak efektif, // Tampilkan label, bukan kode
+                    // tetap dikirim ke backend saat submit form
 
                     TextInput::make('total')
                         ->label('Total')
